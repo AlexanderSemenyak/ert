@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import traceback
 from ert_shared.ensemble_evaluator.entity.ensemble import (
     create_ensemble_builder_from_legacy,
 )
@@ -30,7 +31,9 @@ def _attach(run_context, run_path_list, forward_model):
     ensemble = builder.build()
     logger.debug(builder)
 
-    ee = EnsembleEvaluator(ensemble)
+    ee_id = str(uuid.uuid1()).split("-")[0]
+
+    ee = EnsembleEvaluator(ensemble, ee_id=ee_id)
     logger.debug(ee)
     ee.run()
 
@@ -48,7 +51,7 @@ def _attach(run_context, run_path_list, forward_model):
 
     # XXX: these magic strings will eventually come from EE itself
     JobQueueManagerAdaptor.ws_url = dispatch_url
-    JobQueueManagerAdaptor.ee_id = str(uuid.uuid1()).split("-")[0]
+    JobQueueManagerAdaptor.ee_id = ee_id
     patcher = patch(
         "res.enkf.enkf_simulation_runner.JobQueueManager", new=JobQueueManagerAdaptor
     )
@@ -68,4 +71,9 @@ def attach_ensemble_evaluator(run_context, run_path_list, forward_model):
 def _attach_to_dispatch(ws_url, event_logs):
     asyncio.set_event_loop(asyncio.new_event_loop())
     futures = tuple(nfs_adaptor(event_log, ws_url) for event_log in event_logs)
-    asyncio.get_event_loop().run_until_complete(asyncio.gather(*futures))
+    for coro in asyncio.as_completed(futures):
+        try:
+            asyncio.get_event_loop().run_until_complete(coro)
+        except Exception as e:
+            import traceback
+            logger.error(f"nfs adaptor {e}: {traceback.format_exc()}")

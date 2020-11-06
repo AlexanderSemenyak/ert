@@ -9,9 +9,14 @@ from ert_shared.ensemble_evaluator.entity.identifiers import (
 from ert_shared.ensemble_evaluator.ws_util import wait
 
 
-async def _wait_for_filepath(filepath):
-    while not os.path.isfile(filepath):
-        await asyncio.sleep(0.5)
+async def _wait_for_filepath(filepath, max_retries=1):
+    retries = 0
+    while retries < max_retries:
+        if os.path.isfile(filepath):
+            return
+        await asyncio.sleep(0.2 + 5 * retries)
+        retries += 1
+    raise FileNotFoundError(f"could not find {filepath} after {max_retries} attempts")
 
 
 async def nfs_adaptor(log_file, ws_url):
