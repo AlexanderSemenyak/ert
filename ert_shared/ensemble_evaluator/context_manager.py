@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import traceback
 from ert_shared.ensemble_evaluator.entity.ensemble import (
     create_ensemble_builder_from_legacy,
@@ -44,6 +45,9 @@ def _attach(run_context, run_path_list, forward_model):
     logger.debug("ee ws started")
 
     event_logs = [Path(path.runpath) / "event_log" for path in run_path_list]
+    for event_log in event_logs:
+        if os.path.isfile(event_log):
+            os.remove(event_log)
     dispatch_thread = Thread(
         target=_attach_to_dispatch, args=(dispatch_url, event_logs)
     )
